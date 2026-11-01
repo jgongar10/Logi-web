@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { HidppDevice } from './HidppDevice'
 import onboard from './fixtures/pro-x-2-onboard-sectors.json'
+import { decodeOnboardProfile } from './onboardProfile'
 import { FakeMouse } from './testing/fakeMouse'
 
 describe('HidppDevice', () => {
@@ -32,6 +33,22 @@ describe('HidppDevice', () => {
     const mouse = new HidppDevice(new FakeMouse(), 1)
 
     expect(await mouse.getActiveProfileSector()).toBe(0x0001)
+  })
+  describe('Guardar', () => {
+    const edited = {
+      dpiStages: [400, 1200, 1600, 2400, 3200],
+      defaultStage: 1,
+      pollingRateHz: { receiver: 8000, cable: 1000 },
+    }
+
+    it('stores the edited settings in the Perfil activo', async () => {
+      const fake = new FakeMouse()
+      const mouse = new HidppDevice(fake, 1)
+
+      await mouse.saveActiveProfile(edited)
+
+      expect(decodeOnboardProfile(fake.sectors.get(0x0001)!)).toEqual(edited)
+    })
   })
 })
 

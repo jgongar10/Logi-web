@@ -1,3 +1,4 @@
+import { encodeOnboardProfile, type OnboardProfile } from './onboardProfile'
 import { REPORT_RATE_HZ } from './reportRate'
 
 export interface InputReport {
@@ -45,6 +46,9 @@ const FEATURE_ONBOARD_PROFILES = 0x8100
 const ONBOARD_GET_INFO = 0
 const ONBOARD_GET_CURRENT_PROFILE = 4
 const ONBOARD_MEMORY_READ = 5
+const ONBOARD_MEMORY_ADDR_WRITE = 6
+const ONBOARD_MEMORY_WRITE = 7
+const ONBOARD_MEMORY_WRITE_END = 8
 
 
 const CHARGING_STATES = new Set([1, 2, 3])
@@ -80,6 +84,14 @@ export class HidppDevice {
     return (high << 8) | low
   }
 
+  /** Writes `profile` into the Perfil activo, keeping every byte it does not edit. */
+  async saveActiveProfile(profile: OnboardProfile): Promise<void> {
+    const sectorSize = await this.sectorSize()
+    const address = await this.getActiveProfileSector()
+    const current = await this.readSector(address, sectorSize)
+    await this.writeSector(address, encodeOnboardProfile(current, profile))
+  }
+
   async readOnboardMemory(): Promise<OnboardMemory> {
     const info = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_INFO)
     const profileFormat = info[1]
@@ -90,6 +102,23 @@ export class HidppDevice {
       sectors.set(address, await this.readSector(address, sectorSize))
     }
     return { profileFormat, sectorSize, sectors }
+  }
+
+  private async sectorSize(): Promise<number> {
+    const info = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_INFO)
+    return (info[7] << 8) | info[8]
+  }
+
+  private async writeSector(address: number, bytes: Uint8Array): Promise<void> {
+    await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_MEMORY_ADDR_WRITE, [
+      address >> 8, address & 0xff, 0, 0, bytes.length >> 8, bytes.length & 0xff,
+    ])
+    for (let offset = 0; offset < bytes.length; offset += LONG_PARAMS_LENGTH) {
+      const chunk = new Uint8Array(LONG_PARAMS_LENGTH).fill(0xff)
+      chunk.set(bytes.subarray(offset, offset + LONG_PARAMS_LENGTH))
+      await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_MEMORY_WRITE, [...chunk])
+    }
+    await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_MEMORY_WRITE_END)
   }
 
   private async readSector(address: number, sectorSize: number): Promise<Uint8Array> {
