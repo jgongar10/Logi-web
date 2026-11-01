@@ -1,3 +1,5 @@
+import { REPORT_RATE_HZ } from './reportRate'
+
 export interface InputReport {
   reportId: number
   data: DataView
@@ -32,8 +34,6 @@ const RESPONSE_TIMEOUT_MS = 2000
 const FEATURE_UNIFIED_BATTERY = 0x1004
 const FEATURE_EXTENDED_REPORT_RATE = 0x8061
 
-/** Polling rate in Hz for each 0x8061 rate index (8 ms, 4 ms, … 125 µs). */
-const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000]
 
 const CHARGING_STATES = new Set([1, 2, 3])
 
