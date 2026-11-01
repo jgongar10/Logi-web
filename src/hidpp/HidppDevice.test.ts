@@ -126,6 +126,25 @@ describe('HidppDevice', () => {
     await mouse.useOnboardProfiles()
     expect(await mouse.getMode()).toBe('onboard')
   })
+  describe('Aplicar en vivo', () => {
+    it('applies DPI to both axes while preserving the sensor lift-off byte', async () => {
+      const fake = new FakeMouse()
+      const mouse = new HidppDevice(fake, 1)
+
+      await mouse.applyLiveDpi(1600)
+
+      expect(fake.liveDpi).toEqual({ x: 1600, y: 1600, lod: 0x02 })
+    })
+
+    it('applies a Polling rate by its HID++ rate index', async () => {
+      const fake = new FakeMouse()
+      const mouse = new HidppDevice(fake, 1)
+
+      await mouse.applyLivePollingRate(4000)
+
+      expect(fake.liveRateIndex).toBe(5)
+    })
+  })
 })
 
 const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')

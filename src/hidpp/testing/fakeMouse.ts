@@ -7,6 +7,8 @@ const ERROR_FEATURE_INDEX = 0xff
 const ERR_INVALID_ARGUMENT = 0x02
 const ONBOARD_PROFILES_INDEX = fixture.featureTable['0x8100']
 const BATTERY_INDEX = fixture.featureTable['0x1004']
+const EXTENDED_DPI_INDEX = fixture.featureTable['0x2202']
+const EXTENDED_RATE_INDEX = fixture.featureTable['0x8061']
 const SET_MODE = 1
 const GET_MODE = 2
 const SET_CURRENT_PROFILE = 3
@@ -38,6 +40,8 @@ export class FakeMouse implements HidTransport {
   /** Overrides the captured battery reading (0x1004 getStatus). */
   battery: { percent: number; charging: boolean } | null = null
   mode: 'onboard' | 'host' = 'onboard'
+  liveDpi: { x: number; y: number; lod: number } | null = null
+  liveRateIndex: number | null = null
   reloadedProfileSector: number | null = null
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
@@ -61,7 +65,11 @@ export class FakeMouse implements HidTransport {
       (k) => k.startsWith(prefix) && params.startsWith(k.slice(prefix.length)),
     )
     const hex =
-      featureIndex === BATTERY_INDEX && fnSwid >> 4 === 1 && this.battery
+      featureIndex === EXTENDED_DPI_INDEX && fnSwid >> 4 === 6
+        ? this.setLiveDpi(bytes.slice(3))
+        : featureIndex === EXTENDED_RATE_INDEX && fnSwid >> 4 === 3
+          ? this.setLiveRate(bytes.slice(3))
+          : featureIndex === BATTERY_INDEX && fnSwid >> 4 === 1 && this.battery
         ? toHex(Uint8Array.of(this.battery.percent, 0, this.battery.charging ? 1 : 0)).padEnd(32, '0')
         : featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 >= SET_MODE && fnSwid >> 4 !== 4
         ? this.onboardMemory(fnSwid >> 4, bytes.slice(3))
@@ -125,5 +133,15 @@ export class FakeMouse implements HidTransport {
       return ACK
     }
     return undefined
+  }
+
+  private setLiveDpi(params: Uint8Array): string {
+    this.liveDpi = { x: (params[1] << 8) | params[2], y: (params[3] << 8) | params[4], lod: params[5] }
+    return ACK
+  }
+
+  private setLiveRate(params: Uint8Array): string {
+    this.liveRateIndex = params[0]
+    return ACK
   }
 }

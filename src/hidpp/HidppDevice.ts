@@ -40,6 +40,7 @@ const SOFTWARE_ID = 0x0a
 const RESPONSE_TIMEOUT_MS = 2000
 
 const FEATURE_UNIFIED_BATTERY = 0x1004
+const FEATURE_EXTENDED_DPI = 0x2202
 const FEATURE_EXTENDED_REPORT_RATE = 0x8061
 const FEATURE_ONBOARD_PROFILES = 0x8100
 
@@ -88,6 +89,20 @@ export class HidppDevice {
       currentHz: REPORT_RATE_HZ[currentIndex],
       availableHz: REPORT_RATE_HZ.filter((_, index) => mask & (1 << index)),
     }
+  }
+
+  /** Applies `dpi` immediately without touching onboard memory, keeping the sensor's lift-off byte. */
+  async applyLiveDpi(dpi: number): Promise<void> {
+    const current = await this.call(FEATURE_EXTENDED_DPI, 5, [0])
+    const liftOff = current[9]
+    await this.call(FEATURE_EXTENDED_DPI, 6, [0, dpi >> 8, dpi & 0xff, dpi >> 8, dpi & 0xff, liftOff])
+  }
+
+  /** Applies a Polling rate immediately without touching onboard memory. */
+  async applyLivePollingRate(hz: number): Promise<void> {
+    const index = REPORT_RATE_HZ.indexOf(hz)
+    if (index === -1) throw new HidppError(`Unsupported Polling rate ${hz} Hz`)
+    await this.call(FEATURE_EXTENDED_REPORT_RATE, 3, [index])
   }
 
   async getMode(): Promise<'onboard' | 'host'> {
