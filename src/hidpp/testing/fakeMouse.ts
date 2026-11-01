@@ -43,6 +43,7 @@ export class FakeMouse implements HidTransport {
   liveDpi: { x: number; y: number; lod: number } | null = null
   liveRateIndex: number | null = null
   reloadedProfileSector: number | null = null
+  private inFlight = false
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
 
@@ -55,6 +56,8 @@ export class FakeMouse implements HidTransport {
   }
 
   async sendReport(reportId: number, data: BufferSource): Promise<void> {
+    if (this.inFlight) throw new Error('Overlapping HID++ request while another is in flight')
+    this.inFlight = true
     const bytes = new Uint8Array(ArrayBuffer.isView(data) ? data.buffer : data)
     this.sent.push(bytes)
     if (reportId !== LONG_REPORT_ID) return
@@ -88,6 +91,7 @@ export class FakeMouse implements HidTransport {
   private reply(reply: Uint8Array) {
     queueMicrotask(() => {
       const event = { reportId: LONG_REPORT_ID, data: new DataView(reply.buffer) }
+      this.inFlight = false
       for (const listener of [...this.listeners]) listener(event)
     })
   }

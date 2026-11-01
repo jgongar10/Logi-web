@@ -36,7 +36,6 @@ const LONG_REPORT_ID = 0x11
 const LONG_PARAMS_LENGTH = 16
 const ERROR_FEATURE_INDEX = 0xff
 const ROOT_FEATURE_INDEX = 0x00
-const SOFTWARE_ID = 0x0a
 const RESPONSE_TIMEOUT_MS = 2000
 
 const FEATURE_UNIFIED_BATTERY = 0x1004
@@ -70,6 +69,8 @@ const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.e
 /** A Ratón reached over HID++ 2.0 through a WebHID transport. */
 export class HidppDevice {
   private readonly featureIndexes = new Map<number, number>()
+  private tail: Promise<unknown> = Promise.resolve()
+  private nextSoftwareId = 1
 
   constructor(
     private readonly transport: HidTransport,
@@ -228,7 +229,15 @@ export class HidppDevice {
   }
 
   private request(featureIndex: number, fn: number, params: number[]): Promise<Uint8Array> {
-    const fnSwid = (fn << 4) | SOFTWARE_ID
+    const run = () => this.sendOnce(featureIndex, fn, params)
+    const result = this.tail.then(run, run)
+    this.tail = result
+    return result
+  }
+
+  private sendOnce(featureIndex: number, fn: number, params: number[]): Promise<Uint8Array> {
+    this.nextSoftwareId = (this.nextSoftwareId % 15) + 1
+    const fnSwid = (fn << 4) | this.nextSoftwareId
     const report = new Uint8Array(3 + LONG_PARAMS_LENGTH)
     report.set([this.deviceIndex, featureIndex, fnSwid, ...params])
 

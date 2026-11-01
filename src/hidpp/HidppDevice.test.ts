@@ -144,6 +144,15 @@ describe('HidppDevice', () => {
 
       expect(fake.liveRateIndex).toBe(5)
     })
+
+    it('queues concurrent calls so only one HID++ request is in flight at a time', async () => {
+      const fake = new FakeMouse()
+      const mouse = new HidppDevice(fake, 1)
+
+      await Promise.all([mouse.applyLiveDpi(800), mouse.applyLiveDpi(1600)])
+
+      expect(fake.liveDpi?.x).toBe(1600)
+    })
   })
 })
 
