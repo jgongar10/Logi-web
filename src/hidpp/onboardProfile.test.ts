@@ -26,4 +26,18 @@ describe('encodeOnboardProfile', () => {
 
     expect(encodeOnboardProfile(original, decodeOnboardProfile(original))).toEqual(original)
   })
+  it('writes only the edited fields and the CRC, leaving lift-off and buttons untouched', () => {
+    const original = sector('0001')
+    const edited = {
+      dpiStages: [400, 1200, 1600, 2400, 3200],
+      defaultStage: 2,
+      pollingRateHz: { receiver: 8000, cable: 1000 },
+    }
+
+    const encoded = encodeOnboardProfile(original, edited)
+
+    expect(decodeOnboardProfile(encoded)).toEqual(edited)
+    const changedOffsets = [...encoded.keys()].filter((i) => encoded[i] !== original[i])
+    expect(changedOffsets).toEqual([0x00, 0x02, 0x04, 0x05, 0x06, 0x07, 0xfd, 0xfe])
+  })
 })
