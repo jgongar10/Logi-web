@@ -17,6 +17,11 @@ export interface Battery {
   charging: boolean
 }
 
+export interface PollingRate {
+  currentHz: number
+  availableHz: number[]
+}
+
 const LONG_REPORT_ID = 0x11
 const LONG_PARAMS_LENGTH = 16
 const ERROR_FEATURE_INDEX = 0xff
@@ -25,6 +30,10 @@ const SOFTWARE_ID = 0x0a
 const RESPONSE_TIMEOUT_MS = 2000
 
 const FEATURE_UNIFIED_BATTERY = 0x1004
+const FEATURE_EXTENDED_REPORT_RATE = 0x8061
+
+/** Polling rate in Hz for each 0x8061 rate index (8 ms, 4 ms, … 125 µs). */
+const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000]
 
 const CHARGING_STATES = new Set([1, 2, 3])
 
@@ -42,6 +51,16 @@ export class HidppDevice {
   async getBattery(): Promise<Battery> {
     const [percent, , chargingStatus] = await this.call(FEATURE_UNIFIED_BATTERY, 1)
     return { percent, charging: CHARGING_STATES.has(chargingStatus) }
+  }
+
+  async getPollingRate(): Promise<PollingRate> {
+    const [maskHigh, maskLow] = await this.call(FEATURE_EXTENDED_REPORT_RATE, 1)
+    const [currentIndex] = await this.call(FEATURE_EXTENDED_REPORT_RATE, 2)
+    const mask = (maskHigh << 8) | maskLow
+    return {
+      currentHz: REPORT_RATE_HZ[currentIndex],
+      availableHz: REPORT_RATE_HZ.filter((_, index) => mask & (1 << index)),
+    }
   }
 
   private async call(featureId: number, fn: number, params: number[] = []): Promise<Uint8Array> {

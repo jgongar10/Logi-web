@@ -2,9 +2,22 @@
   "description": "Respuestas HID++ 2.0 reales del PRO X 2 vía Receptor 046d:c54d (wireless PID 40A9, índice de dispositivo 1), capturadas con consultas de solo lectura. Clave: 'featureIndex:function:params' (hex). Valor: parámetros de respuesta (16 bytes, hex).",
   "deviceIndex": 1,
   "featureTable": {
-    "0x0001": 1, "0x0003": 2, "0x0005": 3, "0x1d4b": 4, "0x0020": 5, "0x1004": 6,
-    "0x2250": 7, "0x2251": 8, "0x2202": 9, "0x8090": 10, "0x80e0": 11, "0x8061": 12,
-    "0x8100": 13, "0x8110": 14, "0x1500": 15, "0x1602": 30
+    "0x0001": 1,
+    "0x0003": 2,
+    "0x0005": 3,
+    "0x1d4b": 4,
+    "0x0020": 5,
+    "0x1004": 6,
+    "0x2250": 7,
+    "0x2251": 8,
+    "0x2202": 9,
+    "0x8090": 10,
+    "0x80e0": 11,
+    "0x8061": 12,
+    "0x8100": 13,
+    "0x8110": 14,
+    "0x1500": 15,
+    "0x1602": 30
   },
   "responses": {
     "00:0:0001": "01000200000000000000000000000000",
@@ -25,13 +38,15 @@
     "0c:1:": "007f0000000000000000000000000000",
     "0d:0:": "0107010501051000ff0a040000000000",
     "0d:2:": "01000000000000000000000000000000",
-    "0d:4:": "00010000000000000000000000000000"
+    "0d:4:": "00010000000000000000000000000000",
+    "0c:2:": "03000000000000000000000000000000"
   },
   "notes": {
     "name": "PRO X 2",
     "battery": "58 %, descargando",
     "dpi": "850 en el momento de la captura",
     "onboardMode": "01 = onboard",
-    "openQuestions": "Interpretación exacta de 0x8061 fn0/fn1 (000f / 007f) y del formato de rangos de 0x2202 fn2 pendiente de verificar."
+    "openQuestions": "Formato de rangos de 0x2202 fn2 pendiente de verificar.",
+    "reportRate": "0x8061 fn1 máscara 0x007f = 125..8000 Hz disponibles; fn2 = 3 (1 ms, 1000 Hz). Formato según Solaar ExtendedReportRate."
   }
 }
