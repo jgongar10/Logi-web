@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { HidppDevice, HidppError, LowBatteryError } from './HidppDevice'
 import onboard from './fixtures/pro-x-2-onboard-sectors.json'
 import { decodeOnboardProfile } from './onboardProfile'
+import { parseBackup, serializeBackup } from './backup'
 import { FakeMouse } from './testing/fakeMouse'
 
 describe('HidppDevice', () => {
@@ -92,6 +93,28 @@ describe('HidppDevice', () => {
       const memoryWrites = fake.sent.filter(([, feature, fnSwid]) => feature === 0x0d && fnSwid >> 4 >= 6)
       expect(memoryWrites).toEqual([])
     })
+  })
+  it('restores onboard memory from a Copia de seguridad, writing only changed sectors', async () => {
+    const fake = new FakeMouse()
+    const mouse = new HidppDevice(fake, 1)
+    const backup = serializeBackup(await mouse.readOnboardMemory(), {
+      deviceName: 'PRO X 2',
+      takenAt: new Date(),
+    })
+    await mouse.saveActiveProfile({
+      dpiStages: [400, 1200, 1600, 2400, 3200],
+      defaultStage: 2,
+      pollingRateHz: { receiver: 8000, cable: 1000 },
+    })
+    fake.sent.length = 0
+
+    await mouse.restoreOnboardMemory(parseBackup(backup))
+
+    expect(toHex(fake.sectors.get(0x0001)!)).toBe(onboard.sectors['0001'])
+    const writtenSectors = fake.sent
+      .filter(([, feature, fnSwid]) => feature === 0x0d && fnSwid >> 4 === 6)
+      .map((bytes) => (bytes[3] << 8) | bytes[4])
+    expect(writtenSectors).toEqual([0x0001])
   })
 })
 

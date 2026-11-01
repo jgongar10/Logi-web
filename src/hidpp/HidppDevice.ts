@@ -92,11 +92,15 @@ export class HidppDevice {
   }
 
   /** Writes `profile` into the Perfil activo, keeping every byte it does not edit. */
-  async saveActiveProfile(profile: OnboardProfile): Promise<void> {
+  private async ensureSafeBattery(): Promise<void> {
     const battery = await this.getBattery()
     if (battery.percent < MIN_BATTERY_TO_SAVE && !battery.charging) {
       throw new LowBatteryError(`Battery at ${battery.percent} %`)
     }
+  }
+
+  async saveActiveProfile(profile: OnboardProfile): Promise<void> {
+    await this.ensureSafeBattery()
     const sectorSize = await this.sectorSize()
     const address = await this.getActiveProfileSector()
     const current = await this.readSector(address, sectorSize)
@@ -109,6 +113,23 @@ export class HidppDevice {
     } catch (error) {
       await this.writeSector(address, current).catch(() => undefined)
       throw error
+    }
+  }
+
+  async restoreOnboardMemory(backup: OnboardMemory): Promise<void> {
+    await this.ensureSafeBattery()
+    const current = await this.readOnboardMemory()
+    if (backup.sectorSize !== current.sectorSize) {
+      throw new HidppError(`Backup sector size ${backup.sectorSize} does not match Ratón ${current.sectorSize}`)
+    }
+    for (const [address, target] of backup.sectors) {
+      const existing = current.sectors.get(address)
+      if (!existing || sameBytes(existing, target)) continue
+      await this.writeSector(address, target)
+      const stored = await this.readSector(address, current.sectorSize)
+      if (!sameBytes(stored, target)) {
+        throw new HidppError(`The Ratón did not store sector 0x${address.toString(16)} as written`)
+      }
     }
   }
 
