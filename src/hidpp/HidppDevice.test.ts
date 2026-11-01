@@ -28,6 +28,11 @@ describe('HidppDevice', () => {
     expect(toHex(memory.sectors.get(0x0001)!)).toBe(onboard.sectors['0001'])
     expect(toHex(memory.sectors.get(0x000f)!)).toBe('ff'.repeat(255))
   })
+  it('finds the sector holding the Perfil activo', async () => {
+    const mouse = new HidppDevice(new FakeMouse(), 1)
+
+    expect(await mouse.getActiveProfileSector()).toBe(0x0001)
+  })
 })
 
 const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')

@@ -43,6 +43,7 @@ const FEATURE_EXTENDED_REPORT_RATE = 0x8061
 const FEATURE_ONBOARD_PROFILES = 0x8100
 
 const ONBOARD_GET_INFO = 0
+const ONBOARD_GET_CURRENT_PROFILE = 4
 const ONBOARD_MEMORY_READ = 5
 
 
@@ -72,6 +73,11 @@ export class HidppDevice {
       currentHz: REPORT_RATE_HZ[currentIndex],
       availableHz: REPORT_RATE_HZ.filter((_, index) => mask & (1 << index)),
     }
+  }
+
+  async getActiveProfileSector(): Promise<number> {
+    const [high, low] = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_CURRENT_PROFILE)
+    return (high << 8) | low
   }
 
   async readOnboardMemory(): Promise<OnboardMemory> {
