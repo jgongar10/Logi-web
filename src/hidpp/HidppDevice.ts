@@ -62,6 +62,7 @@ export class HidppError extends Error {}
 export class LowBatteryError extends HidppError {}
 
 const MIN_BATTERY_TO_SAVE = 10
+const SUPPORTED_PROFILE_FORMAT = 7
 const MODE_ONBOARD = 0x01
 
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i])
@@ -131,7 +132,10 @@ export class HidppDevice {
 
   async saveActiveProfile(profile: OnboardProfile): Promise<void> {
     await this.ensureSafeBattery()
-    const sectorSize = await this.sectorSize()
+    const { profileFormat, sectorSize } = await this.profileGeometry()
+    if (profileFormat !== SUPPORTED_PROFILE_FORMAT) {
+      throw new HidppError(`Unsupported profile format ${profileFormat}`)
+    }
     const address = await this.getActiveProfileSector()
     const current = await this.readSector(address, sectorSize)
     const updated = encodeOnboardProfile(current, profile)
@@ -181,9 +185,9 @@ export class HidppDevice {
     return { profileFormat, sectorSize, sectors }
   }
 
-  private async sectorSize(): Promise<number> {
+  private async profileGeometry(): Promise<{ profileFormat: number; sectorSize: number }> {
     const info = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_INFO)
-    return (info[7] << 8) | info[8]
+    return { profileFormat: info[1], sectorSize: (info[7] << 8) | info[8] }
   }
 
   private async writeSector(address: number, bytes: Uint8Array): Promise<void> {
