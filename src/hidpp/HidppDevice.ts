@@ -24,6 +24,13 @@ export interface PollingRate {
   availableHz: number[]
 }
 
+export interface OnboardMemory {
+  profileFormat: number
+  sectorSize: number
+  /** Flash sectors by address, each `sectorSize` bytes. */
+  sectors: Map<number, Uint8Array>
+}
+
 const LONG_REPORT_ID = 0x11
 const LONG_PARAMS_LENGTH = 16
 const ERROR_FEATURE_INDEX = 0xff
@@ -33,6 +40,10 @@ const RESPONSE_TIMEOUT_MS = 2000
 
 const FEATURE_UNIFIED_BATTERY = 0x1004
 const FEATURE_EXTENDED_REPORT_RATE = 0x8061
+const FEATURE_ONBOARD_PROFILES = 0x8100
+
+const ONBOARD_GET_INFO = 0
+const ONBOARD_MEMORY_READ = 5
 
 
 const CHARGING_STATES = new Set([1, 2, 3])
@@ -61,6 +72,32 @@ export class HidppDevice {
       currentHz: REPORT_RATE_HZ[currentIndex],
       availableHz: REPORT_RATE_HZ.filter((_, index) => mask & (1 << index)),
     }
+  }
+
+  async readOnboardMemory(): Promise<OnboardMemory> {
+    const info = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_INFO)
+    const profileFormat = info[1]
+    const sectorCount = info[6]
+    const sectorSize = (info[7] << 8) | info[8]
+    const sectors = new Map<number, Uint8Array>()
+    for (let address = 0; address < sectorCount; address++) {
+      sectors.set(address, await this.readSector(address, sectorSize))
+    }
+    return { profileFormat, sectorSize, sectors }
+  }
+
+  private async readSector(address: number, sectorSize: number): Promise<Uint8Array> {
+    const sector = new Uint8Array(sectorSize)
+    // Reads return 16 bytes and may not run past the sector, so the last read overlaps.
+    const lastOffset = sectorSize - LONG_PARAMS_LENGTH
+    for (let offset = 0; offset < sectorSize; offset += LONG_PARAMS_LENGTH) {
+      const at = Math.min(offset, lastOffset)
+      const chunk = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_MEMORY_READ, [
+        address >> 8, address & 0xff, at >> 8, at & 0xff,
+      ])
+      sector.set(chunk, at)
+    }
+    return sector
   }
 
   private async call(featureId: number, fn: number, params: number[] = []): Promise<Uint8Array> {

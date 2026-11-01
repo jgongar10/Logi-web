@@ -1,9 +1,22 @@
 import fixture from '../fixtures/pro-x-2-receiver.json'
+import onboard from '../fixtures/pro-x-2-onboard-sectors.json'
 import type { HidTransport, InputReport } from '../HidppDevice'
 
 const LONG_REPORT_ID = 0x11
 const ERROR_FEATURE_INDEX = 0xff
 const ERR_INVALID_ARGUMENT = 0x02
+const ONBOARD_PROFILES_INDEX = fixture.featureTable['0x8100']
+const MEMORY_READ = 5
+const READ_LENGTH = 16
+
+/** Answers 0x8100 memoryRead from the captured onboard memory dump. */
+function readMemory(params: Uint8Array): string | undefined {
+  const sector = (params[0] << 8) | params[1]
+  const offset = (params[2] << 8) | params[3]
+  const hex = onboard.sectors[sector.toString(16).padStart(4, '0') as keyof typeof onboard.sectors]
+  if (hex === undefined || offset > onboard.sectorSize - READ_LENGTH) return undefined
+  return hex.slice(offset * 2, (offset + READ_LENGTH) * 2)
+}
 
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
@@ -34,13 +47,16 @@ export class FakeMouse implements HidTransport {
     const key = Object.keys(fixture.responses).find(
       (k) => k.startsWith(prefix) && params.startsWith(k.slice(prefix.length)),
     )
+    const hex =
+      featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 === MEMORY_READ
+        ? readMemory(bytes.slice(3))
+        : key && fixture.responses[key as keyof typeof fixture.responses]
     const reply = new Uint8Array(19)
     reply[0] = deviceIndex
-    if (deviceIndex !== fixture.deviceIndex || key === undefined) {
+    if (deviceIndex !== fixture.deviceIndex || !hex) {
       reply.set([ERROR_FEATURE_INDEX, featureIndex, fnSwid, ERR_INVALID_ARGUMENT], 1)
     } else {
       reply.set([featureIndex, fnSwid], 1)
-      const hex = fixture.responses[key as keyof typeof fixture.responses]
       reply.set(hex.match(/../g)!.map((h) => parseInt(h, 16)), 3)
     }
     queueMicrotask(() => {
