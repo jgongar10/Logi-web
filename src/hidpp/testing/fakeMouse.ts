@@ -7,6 +7,8 @@ const ERROR_FEATURE_INDEX = 0xff
 const ERR_INVALID_ARGUMENT = 0x02
 const ONBOARD_PROFILES_INDEX = fixture.featureTable['0x8100']
 const BATTERY_INDEX = fixture.featureTable['0x1004']
+const SET_MODE = 1
+const GET_MODE = 2
 const SET_CURRENT_PROFILE = 3
 const MEMORY_READ = 5
 const MEMORY_ADDR_WRITE = 6
@@ -35,6 +37,7 @@ export class FakeMouse implements HidTransport {
   corruptNextWrite = false
   /** Overrides the captured battery reading (0x1004 getStatus). */
   battery: { percent: number; charging: boolean } | null = null
+  mode: 'onboard' | 'host' = 'onboard'
   reloadedProfileSector: number | null = null
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
@@ -60,7 +63,7 @@ export class FakeMouse implements HidTransport {
     const hex =
       featureIndex === BATTERY_INDEX && fnSwid >> 4 === 1 && this.battery
         ? toHex(Uint8Array.of(this.battery.percent, 0, this.battery.charging ? 1 : 0)).padEnd(32, '0')
-        : featureIndex === ONBOARD_PROFILES_INDEX && (fnSwid >> 4 === SET_CURRENT_PROFILE || fnSwid >> 4 >= MEMORY_READ)
+        : featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 >= SET_MODE && fnSwid >> 4 !== 4
         ? this.onboardMemory(fnSwid >> 4, bytes.slice(3))
         : key && fixture.responses[key as keyof typeof fixture.responses]
     const reply = new Uint8Array(19)
@@ -83,6 +86,12 @@ export class FakeMouse implements HidTransport {
 
   /** Models 0x8100 memoryRead / memoryAddrWrite / memoryWrite / memoryWriteEnd. */
   private onboardMemory(fn: number, params: Uint8Array): string | undefined {
+    if (fn === SET_MODE) {
+      if (params[0] !== 1 && params[0] !== 2) return undefined
+      this.mode = params[0] === 1 ? 'onboard' : 'host'
+      return ACK
+    }
+    if (fn === GET_MODE) return (this.mode === 'onboard' ? '01' : '02').padEnd(32, '0')
     if (fn === SET_CURRENT_PROFILE) {
       this.reloadedProfileSector = (params[0] << 8) | params[1]
       return ACK

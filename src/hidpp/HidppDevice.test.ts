@@ -117,6 +117,15 @@ describe('HidppDevice', () => {
       .map((bytes) => (bytes[3] << 8) | bytes[4])
     expect(writtenSectors).toEqual([0x0001])
   })
+  it('detects host mode and switches back to onboard profiles on request', async () => {
+    const fake = new FakeMouse()
+    fake.mode = 'host'
+    const mouse = new HidppDevice(fake, 1)
+
+    expect(await mouse.getMode()).toBe('host')
+    await mouse.useOnboardProfiles()
+    expect(await mouse.getMode()).toBe('onboard')
+  })
 })
 
 const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')

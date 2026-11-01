@@ -44,6 +44,8 @@ const FEATURE_EXTENDED_REPORT_RATE = 0x8061
 const FEATURE_ONBOARD_PROFILES = 0x8100
 
 const ONBOARD_GET_INFO = 0
+const ONBOARD_SET_MODE = 1
+const ONBOARD_GET_MODE = 2
 const ONBOARD_SET_CURRENT_PROFILE = 3
 const ONBOARD_GET_CURRENT_PROFILE = 4
 const ONBOARD_MEMORY_READ = 5
@@ -60,6 +62,7 @@ export class HidppError extends Error {}
 export class LowBatteryError extends HidppError {}
 
 const MIN_BATTERY_TO_SAVE = 10
+const MODE_ONBOARD = 0x01
 
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i])
 
@@ -85,6 +88,16 @@ export class HidppDevice {
       currentHz: REPORT_RATE_HZ[currentIndex],
       availableHz: REPORT_RATE_HZ.filter((_, index) => mask & (1 << index)),
     }
+  }
+
+  async getMode(): Promise<'onboard' | 'host'> {
+    const [mode] = await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_GET_MODE)
+    return mode === MODE_ONBOARD ? 'onboard' : 'host'
+  }
+
+  /** Switches the Ratón back to running from its Perfiles onboard; never called automatically. */
+  async useOnboardProfiles(): Promise<void> {
+    await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_SET_MODE, [MODE_ONBOARD])
   }
 
   async getActiveProfileSector(): Promise<number> {
