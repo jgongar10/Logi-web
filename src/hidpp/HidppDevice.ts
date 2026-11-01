@@ -92,6 +92,7 @@ export class HidppDevice {
     const address = await this.getActiveProfileSector()
     const current = await this.readSector(address, sectorSize)
     const updated = encodeOnboardProfile(current, profile)
+    if (sameBytes(updated, current)) return
     try {
       await this.writeSector(address, updated)
       const stored = await this.readSector(address, sectorSize)

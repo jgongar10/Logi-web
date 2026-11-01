@@ -60,6 +60,17 @@ describe('HidppDevice', () => {
 
       expect(fake.sectors.get(0x0001)).toEqual(original)
     })
+
+    it('does not write to the Ratón when nothing changed', async () => {
+      const fake = new FakeMouse()
+      const mouse = new HidppDevice(fake, 1)
+      const unchanged = decodeOnboardProfile(fake.sectors.get(0x0001)!)
+
+      await mouse.saveActiveProfile(unchanged)
+
+      const memoryWrites = fake.sent.filter(([, feature, fnSwid]) => feature === 0x0d && fnSwid >> 4 >= 6)
+      expect(memoryWrites).toEqual([])
+    })
   })
 })
 
