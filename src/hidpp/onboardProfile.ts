@@ -15,7 +15,28 @@ const FIRST_STAGE = 0x04
 const STAGE_SIZE = 5
 const STAGE_COUNT = 5
 
+export class OnboardProfileError extends Error {}
+
+/** CRC-CCITT (polynomial 0x1021, initial value 0xFFFF) as used by 0x8100 sectors. */
+function crc16(bytes: Uint8Array): number {
+  let crc = 0xffff
+  for (const byte of bytes) {
+    crc ^= byte << 8
+    for (let bit = 0; bit < 8; bit++) {
+      crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff
+    }
+  }
+  return crc
+}
+
+function storedCrc(sector: Uint8Array): number {
+  return (sector[sector.length - 2] << 8) | sector[sector.length - 1]
+}
+
 export function decodeOnboardProfile(sector: Uint8Array): OnboardProfile {
+  if (crc16(sector.subarray(0, -2)) !== storedCrc(sector)) {
+    throw new OnboardProfileError('Onboard profile CRC mismatch')
+  }
   const dpiStages: number[] = []
   for (let i = 0; i < STAGE_COUNT; i++) {
     const offset = FIRST_STAGE + i * STAGE_SIZE
