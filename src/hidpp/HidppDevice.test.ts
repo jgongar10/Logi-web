@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HidppDevice } from './HidppDevice'
+import { HidppDevice, HidppError } from './HidppDevice'
 import onboard from './fixtures/pro-x-2-onboard-sectors.json'
 import { decodeOnboardProfile } from './onboardProfile'
 import { FakeMouse } from './testing/fakeMouse'
@@ -48,6 +48,17 @@ describe('HidppDevice', () => {
       await mouse.saveActiveProfile(edited)
 
       expect(decodeOnboardProfile(fake.sectors.get(0x0001)!)).toEqual(edited)
+    })
+
+    it('restores the original profile when the Ratón does not store what it was sent', async () => {
+      const fake = new FakeMouse()
+      const original = fake.sectors.get(0x0001)!
+      fake.corruptNextWrite = true
+      const mouse = new HidppDevice(fake, 1)
+
+      await expect(mouse.saveActiveProfile(edited)).rejects.toThrow(HidppError)
+
+      expect(fake.sectors.get(0x0001)).toEqual(original)
     })
   })
 })

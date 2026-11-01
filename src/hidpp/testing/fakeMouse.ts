@@ -29,8 +29,8 @@ export class FakeMouse implements HidTransport {
       Uint8Array.from(hex.match(/../g)!, (h) => parseInt(h, 16)),
     ]),
   )
-  /** Set to make the Ratón silently store something other than what it was sent. */
-  corruptWrites = false
+  /** Set to make the Ratón silently store something other than it was sent, once. */
+  corruptNextWrite = false
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
 
@@ -96,7 +96,10 @@ export class FakeMouse implements HidTransport {
     if (fn === MEMORY_WRITE_END && this.pendingWrite) {
       const { sector, length, data } = this.pendingWrite
       const stored = Uint8Array.from(data.slice(0, length))
-      if (this.corruptWrites) stored[0x10] ^= 0xff
+      if (this.corruptNextWrite) {
+        stored[0x10] ^= 0xff
+        this.corruptNextWrite = false
+      }
       this.sectors.set(sector, stored)
       this.pendingWrite = null
       return ACK

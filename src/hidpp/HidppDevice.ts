@@ -55,6 +55,8 @@ const CHARGING_STATES = new Set([1, 2, 3])
 
 export class HidppError extends Error {}
 
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i])
+
 /** A Ratón reached over HID++ 2.0 through a WebHID transport. */
 export class HidppDevice {
   private readonly featureIndexes = new Map<number, number>()
@@ -89,7 +91,15 @@ export class HidppDevice {
     const sectorSize = await this.sectorSize()
     const address = await this.getActiveProfileSector()
     const current = await this.readSector(address, sectorSize)
-    await this.writeSector(address, encodeOnboardProfile(current, profile))
+    const updated = encodeOnboardProfile(current, profile)
+    try {
+      await this.writeSector(address, updated)
+      const stored = await this.readSector(address, sectorSize)
+      if (!sameBytes(stored, updated)) throw new HidppError('The Ratón did not store the profile as written')
+    } catch (error) {
+      await this.writeSector(address, current).catch(() => undefined)
+      throw error
+    }
   }
 
   async readOnboardMemory(): Promise<OnboardMemory> {
