@@ -6,3 +6,4 @@ Los ajustes se Aplican en vivo (efecto inmediato, temporal) y sólo "Guardar" lo
 
 - La app nunca cambia el Ratón de modo host a onboard sin pedirlo explícitamente.
 - Sólo se escriben funciones HID++ conocidas; nunca firmware ni funciones sin identificar.
+- Guardar es lectura-modificación-escritura del sector completo: los bytes que la app no edita (botones, lift-off por Etapa DPI, campos desconocidos) se preservan tal cual. En particular, nunca se modifica el byte de lift-off de una Etapa DPI en el formato de perfil 7: OpenMouse documenta que escribirlo devuelve el error HID++ 0x05.
