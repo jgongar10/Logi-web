@@ -44,6 +44,7 @@ const FEATURE_EXTENDED_REPORT_RATE = 0x8061
 const FEATURE_ONBOARD_PROFILES = 0x8100
 
 const ONBOARD_GET_INFO = 0
+const ONBOARD_SET_CURRENT_PROFILE = 3
 const ONBOARD_GET_CURRENT_PROFILE = 4
 const ONBOARD_MEMORY_READ = 5
 const ONBOARD_MEMORY_ADDR_WRITE = 6
@@ -110,6 +111,7 @@ export class HidppDevice {
       await this.writeSector(address, updated)
       const stored = await this.readSector(address, sectorSize)
       if (!sameBytes(stored, updated)) throw new HidppError('The Ratón did not store the profile as written')
+      await this.reloadProfile(address)
     } catch (error) {
       await this.writeSector(address, current).catch(() => undefined)
       throw error
@@ -131,6 +133,11 @@ export class HidppDevice {
         throw new HidppError(`The Ratón did not store sector 0x${address.toString(16)} as written`)
       }
     }
+    await this.reloadProfile(await this.getActiveProfileSector())
+  }
+
+  private async reloadProfile(address: number): Promise<void> {
+    await this.call(FEATURE_ONBOARD_PROFILES, ONBOARD_SET_CURRENT_PROFILE, [address >> 8, address & 0xff])
   }
 
   async readOnboardMemory(): Promise<OnboardMemory> {

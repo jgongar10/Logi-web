@@ -49,6 +49,7 @@ describe('HidppDevice', () => {
       await mouse.saveActiveProfile(edited)
 
       expect(decodeOnboardProfile(fake.sectors.get(0x0001)!)).toEqual(edited)
+      expect(fake.reloadedProfileSector).toBe(0x0001)
     })
 
     it('restores the original profile when the Ratón does not store what it was sent', async () => {

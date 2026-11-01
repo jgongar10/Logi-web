@@ -7,6 +7,7 @@ const ERROR_FEATURE_INDEX = 0xff
 const ERR_INVALID_ARGUMENT = 0x02
 const ONBOARD_PROFILES_INDEX = fixture.featureTable['0x8100']
 const BATTERY_INDEX = fixture.featureTable['0x1004']
+const SET_CURRENT_PROFILE = 3
 const MEMORY_READ = 5
 const MEMORY_ADDR_WRITE = 6
 const MEMORY_WRITE = 7
@@ -34,6 +35,7 @@ export class FakeMouse implements HidTransport {
   corruptNextWrite = false
   /** Overrides the captured battery reading (0x1004 getStatus). */
   battery: { percent: number; charging: boolean } | null = null
+  reloadedProfileSector: number | null = null
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
 
@@ -58,7 +60,7 @@ export class FakeMouse implements HidTransport {
     const hex =
       featureIndex === BATTERY_INDEX && fnSwid >> 4 === 1 && this.battery
         ? toHex(Uint8Array.of(this.battery.percent, 0, this.battery.charging ? 1 : 0)).padEnd(32, '0')
-        : featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 >= MEMORY_READ
+        : featureIndex === ONBOARD_PROFILES_INDEX && (fnSwid >> 4 === SET_CURRENT_PROFILE || fnSwid >> 4 >= MEMORY_READ)
         ? this.onboardMemory(fnSwid >> 4, bytes.slice(3))
         : key && fixture.responses[key as keyof typeof fixture.responses]
     const reply = new Uint8Array(19)
@@ -81,6 +83,10 @@ export class FakeMouse implements HidTransport {
 
   /** Models 0x8100 memoryRead / memoryAddrWrite / memoryWrite / memoryWriteEnd. */
   private onboardMemory(fn: number, params: Uint8Array): string | undefined {
+    if (fn === SET_CURRENT_PROFILE) {
+      this.reloadedProfileSector = (params[0] << 8) | params[1]
+      return ACK
+    }
     if (fn === MEMORY_READ) {
       const sector = this.sectors.get((params[0] << 8) | params[1])
       const offset = (params[2] << 8) | params[3]
