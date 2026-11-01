@@ -40,4 +40,26 @@ describe('encodeOnboardProfile', () => {
     const changedOffsets = [...encoded.keys()].filter((i) => encoded[i] !== original[i])
     expect(changedOffsets).toEqual([0x00, 0x02, 0x04, 0x05, 0x06, 0x07, 0xfd, 0xfe])
   })
+  it('refuses a Polling rate the format cannot store', () => {
+    const original = sector('0001')
+    const profile = { ...decodeOnboardProfile(original), pollingRateHz: { receiver: 3000, cable: 1000 } }
+
+    expect(() => encodeOnboardProfile(original, profile)).toThrow(OnboardProfileError)
+  })
+
+  it.each([50, 32050, 1225])('refuses %i DPI, outside 100–32000 in steps of 50', (dpi) => {
+    const original = sector('0001')
+    const profile = { ...decodeOnboardProfile(original), dpiStages: [dpi, 1200, 1600, 2400, 3200] }
+
+    expect(() => encodeOnboardProfile(original, profile)).toThrow(OnboardProfileError)
+  })
+  it.each([
+    ['six stages', { dpiStages: [400, 800, 1200, 1600, 2400, 3200], defaultStage: 0 }],
+    ['a default stage that does not exist', { dpiStages: [800, 1200, 1600, 2400, 3200], defaultStage: 5 }],
+  ])('refuses %s', (_, change) => {
+    const original = sector('0001')
+    const profile = { ...decodeOnboardProfile(original), ...change }
+
+    expect(() => encodeOnboardProfile(original, profile)).toThrow(OnboardProfileError)
+  })
 })
