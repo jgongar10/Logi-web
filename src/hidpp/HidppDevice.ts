@@ -55,6 +55,11 @@ const CHARGING_STATES = new Set([1, 2, 3])
 
 export class HidppError extends Error {}
 
+/** Guardar is refused so the Ratón cannot power off halfway through a memory write. */
+export class LowBatteryError extends HidppError {}
+
+const MIN_BATTERY_TO_SAVE = 10
+
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i])
 
 /** A Ratón reached over HID++ 2.0 through a WebHID transport. */
@@ -88,6 +93,10 @@ export class HidppDevice {
 
   /** Writes `profile` into the Perfil activo, keeping every byte it does not edit. */
   async saveActiveProfile(profile: OnboardProfile): Promise<void> {
+    const battery = await this.getBattery()
+    if (battery.percent < MIN_BATTERY_TO_SAVE && !battery.charging) {
+      throw new LowBatteryError(`Battery at ${battery.percent} %`)
+    }
     const sectorSize = await this.sectorSize()
     const address = await this.getActiveProfileSector()
     const current = await this.readSector(address, sectorSize)

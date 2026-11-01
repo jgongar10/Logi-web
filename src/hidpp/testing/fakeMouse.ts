@@ -6,6 +6,7 @@ const LONG_REPORT_ID = 0x11
 const ERROR_FEATURE_INDEX = 0xff
 const ERR_INVALID_ARGUMENT = 0x02
 const ONBOARD_PROFILES_INDEX = fixture.featureTable['0x8100']
+const BATTERY_INDEX = fixture.featureTable['0x1004']
 const MEMORY_READ = 5
 const MEMORY_ADDR_WRITE = 6
 const MEMORY_WRITE = 7
@@ -31,6 +32,8 @@ export class FakeMouse implements HidTransport {
   )
   /** Set to make the Ratón silently store something other than it was sent, once. */
   corruptNextWrite = false
+  /** Overrides the captured battery reading (0x1004 getStatus). */
+  battery: { percent: number; charging: boolean } | null = null
   private pendingWrite: { sector: number; length: number; data: number[] } | null = null
   private readonly listeners = new Set<(event: InputReport) => void>()
 
@@ -53,7 +56,9 @@ export class FakeMouse implements HidTransport {
       (k) => k.startsWith(prefix) && params.startsWith(k.slice(prefix.length)),
     )
     const hex =
-      featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 >= MEMORY_READ
+      featureIndex === BATTERY_INDEX && fnSwid >> 4 === 1 && this.battery
+        ? toHex(Uint8Array.of(this.battery.percent, 0, this.battery.charging ? 1 : 0)).padEnd(32, '0')
+        : featureIndex === ONBOARD_PROFILES_INDEX && fnSwid >> 4 >= MEMORY_READ
         ? this.onboardMemory(fnSwid >> 4, bytes.slice(3))
         : key && fixture.responses[key as keyof typeof fixture.responses]
     const reply = new Uint8Array(19)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HidppDevice, HidppError } from './HidppDevice'
+import { HidppDevice, HidppError, LowBatteryError } from './HidppDevice'
 import onboard from './fixtures/pro-x-2-onboard-sectors.json'
 import { decodeOnboardProfile } from './onboardProfile'
 import { FakeMouse } from './testing/fakeMouse'
@@ -59,6 +59,27 @@ describe('HidppDevice', () => {
       await expect(mouse.saveActiveProfile(edited)).rejects.toThrow(HidppError)
 
       expect(fake.sectors.get(0x0001)).toEqual(original)
+    })
+
+    it('refuses to save on low battery while not charging, without touching memory', async () => {
+      const fake = new FakeMouse()
+      fake.battery = { percent: 9, charging: false }
+      const original = fake.sectors.get(0x0001)!
+      const mouse = new HidppDevice(fake, 1)
+
+      await expect(mouse.saveActiveProfile(edited)).rejects.toThrow(LowBatteryError)
+
+      expect(fake.sectors.get(0x0001)).toEqual(original)
+    })
+
+    it('saves on low battery while charging', async () => {
+      const fake = new FakeMouse()
+      fake.battery = { percent: 9, charging: true }
+      const mouse = new HidppDevice(fake, 1)
+
+      await mouse.saveActiveProfile(edited)
+
+      expect(decodeOnboardProfile(fake.sectors.get(0x0001)!)).toEqual(edited)
     })
 
     it('does not write to the Ratón when nothing changed', async () => {
