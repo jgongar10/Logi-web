@@ -51,3 +51,21 @@ export function decodeOnboardProfile(sector: Uint8Array): OnboardProfile {
     },
   }
 }
+
+/**
+ * Writes `profile` into a copy of `sector`, leaving every byte Logi-web does
+ * not edit (buttons, lift-off, unknown fields) untouched, and refreshes the CRC.
+ */
+export function encodeOnboardProfile(sector: Uint8Array, profile: OnboardProfile): Uint8Array {
+  const result = sector.slice()
+  result[RATE_RECEIVER] = REPORT_RATE_HZ.indexOf(profile.pollingRateHz.receiver)
+  result[RATE_CABLE] = REPORT_RATE_HZ.indexOf(profile.pollingRateHz.cable)
+  result[DEFAULT_STAGE] = profile.defaultStage
+  profile.dpiStages.forEach((dpi, i) => {
+    const offset = FIRST_STAGE + i * STAGE_SIZE
+    result.set([dpi & 0xff, dpi >> 8, dpi & 0xff, dpi >> 8], offset)
+  })
+  const crc = crc16(result.subarray(0, -2))
+  result.set([crc >> 8, crc & 0xff], result.length - 2)
+  return result
+}

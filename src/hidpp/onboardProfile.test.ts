@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import dump from './fixtures/pro-x-2-onboard-sectors.json'
-import { decodeOnboardProfile, OnboardProfileError } from './onboardProfile'
+import { decodeOnboardProfile, encodeOnboardProfile, OnboardProfileError } from './onboardProfile'
 
 const sector = (address: keyof typeof dump.sectors) =>
   Uint8Array.from(dump.sectors[address]!.match(/../g)!, (h) => parseInt(h, 16))
@@ -18,5 +18,12 @@ describe('decodeOnboardProfile', () => {
     corrupted[0x04] ^= 0x01
 
     expect(() => decodeOnboardProfile(corrupted)).toThrow(OnboardProfileError)
+  })})
+
+describe('encodeOnboardProfile', () => {
+  it("reproduces the Ratón's own bytes when nothing changed", () => {
+    const original = sector('0001')
+
+    expect(encodeOnboardProfile(original, decodeOnboardProfile(original))).toEqual(original)
   })
 })
